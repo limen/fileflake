@@ -1,0 +1,27 @@
+{
+  "name": "limen/fileflake",
+  "description": "A distributed file server utilizes mongodb as the storage backend.",
+  "type": "library",
+  "keywords": ["laravel","file","server","mongodb"],
+  "homepage": "https://github.com/limen/fileflake",
+  "authors": [
+    {
+      "name": "Li Mengxiang",
+      "mail": "limengxiang876@gmail.com",
+      "homepage": "http://limen.github.io"
+    }
+  ],
+  "license" : "MIT",
+  "require": {
+    "illuminate/support": "5.2.*",
+    "illuminate/database": "5.2.*",
+    "illuminate/config": "5.2.*",
+    "illuminate/http": "5.2.*",
+    "jenssegers/mongodb": "2.3.* || 3.0.*"
+  },
+  "autoload": {
+    "psr-4": {
+      "Limen\\Fileflake\\": "src/"
+    }
+  }
+}
