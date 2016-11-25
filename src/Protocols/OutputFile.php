@@ -9,18 +9,20 @@ namespace Limen\Fileflake\Protocols;
  * @property string   name      file name
  * @property int      size      file size in byte
  * @property string   extension file extension
+ * @property string   mime      file mime
  *
  */
 class OutputFile
 {
     protected $attributes = [];
 
-    public function __construct($name, $path, $size = null, $extension = null)
+    public function __construct($name, $path, $size = null, $extension = null, $mime = null)
     {
         $this->attributes['name'] = $name;
         $this->attributes['path'] = $path;
         $this->attributes['size'] = $size;
         $this->attributes['extension'] = $extension;
+        $this->attributes['mime'] = $mime;
     }
 
     public function __get($attr)

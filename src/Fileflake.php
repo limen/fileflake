@@ -93,7 +93,13 @@ class Fileflake
             $fileInfo->localize();
         }
 
-        return new OutputFile($fileInfo->name, $fileInfo->path, $fileInfo->size, $fileInfo->extension);
+        return new OutputFile(
+            $fileInfo->name,
+            $fileInfo->path,
+            $fileInfo->size,
+            $fileInfo->extension,
+            $fileInfo->mimeType
+        );
     }
 
     /**

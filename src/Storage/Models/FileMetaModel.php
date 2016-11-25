@@ -88,7 +88,7 @@ class FileMetaModel
 
     /**
      * @param $fid
-     * @param bool $nonDeleted
+     * @param bool $nonDeleted get none deleted file if true
      * @return null|InputFile
      */
     public function getById($fid, $nonDeleted = false)
@@ -96,7 +96,11 @@ class FileMetaModel
         /** @var static $row */
         $row = $this->model->ofId($fid);
 
-        return $row && !(bool)$row->deleted === $nonDeleted ? InputFile::initWithFileMeta($row) : null;
+        if ($nonDeleted && $row && $row->deleted) {
+            return null;
+        }
+
+        return $row ? InputFile::initWithFileMeta($row) : null;
     }
 
     /**
