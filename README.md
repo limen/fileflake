@@ -128,3 +128,7 @@ Store the nodes meta data that would be used to load balance
 
 + file count
 + file volume
+
+## License
+
+MIT
