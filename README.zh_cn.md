@@ -15,10 +15,7 @@
 
 ### 安装
 
-推荐使用composer安装. 参考 [php composer](https://getcomposer.org/ "").
-```
-composer require "limen/fileflake:dev-master"
-```
+This library could be found on [Packagist](https://packagist.org/packages/limen/redmodel "") for an easier management of projects dependencies using [Composer](https://getcomposer.org/ "").
 
 ### 使用
 

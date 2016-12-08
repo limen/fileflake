@@ -15,10 +15,7 @@ A distributed file server utilizes mongodb(not mongo GridFS) as the storage back
 
 ### Installation
 
-Recommend to install via composer. See [php composer](https://getcomposer.org/ "").
-```
-composer require "limen/fileflake:dev-master"
-```
+This library could be found on [Packagist](https://packagist.org/packages/limen/redmodel "") for an easier management of projects dependencies using [Composer](https://getcomposer.org/ "").
 
 ### Usage
 
