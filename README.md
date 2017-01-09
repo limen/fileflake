@@ -90,20 +90,27 @@ class FileController
 }
 ```
 
+## Tech detail 
+
 ### File meta
 
-Every file has a file meta record. 
+Every file has a meta record. 
 
-The reference is similar to soft link in Linux file system.
-The reference count shows how many files are referring to this file (source file).
+The reference is similar to soft link in Linux file system. 
 
-The uploaded files have same checksum would store only one copy and they are linked to source file with their references.
+A file is "source file" when it doesn't have a reference. On the contrary, the files which have reference are "soft links".
+
+File's reference count (default 1) shows how many file(s) (including itself) are referring to it.
+
+The system would only store the first one of the files which have same checksum and the others' references point to the first file.
 
 When a soft link file is removed, its meta data would be deleted and the reference count of its source file would decrement by 1.
 
-when a source file is removed, its reference count would decrement by 1.
+When a source file is removed, its reference count would decrement by 1.
 
-When a file's reference count decrement to 0, its meta data would be deleted and its chunks(if source file) would be deleted from storage backend.
+When a source file's reference count decrement to 0, its meta data would be deleted and its chunks would be deleted from storage node.
+
+#### meta fields
 
 + file id
 + file name
@@ -117,12 +124,20 @@ When a file's reference count decrement to 0, its meta data would be deleted and
 
 ### Storage node
 
+The nodes store source file's chunks.
+
+#### fields
+
 + chunk id
 + chunk content
 
 ### Node meta
+
 Store the nodes meta data that would be used to load balance
 
+#### fields
+
++ node id
 + file count
 + file volume
 
