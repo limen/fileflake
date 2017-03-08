@@ -15,7 +15,11 @@
 
 ### 安装
 
-This library could be found on [Packagist](https://packagist.org/packages/limen/redmodel "") for an easier management of projects dependencies using [Composer](https://getcomposer.org/ "").
+推荐通过[composer](https://getcomposer.org/ "")安装.
+
+```bash
+composer require "limen/fileflake"
+```
 
 ### 使用
 

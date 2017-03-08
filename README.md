@@ -15,7 +15,11 @@ A distributed file server utilizes mongodb(not mongo GridFS) as the storage back
 
 ### Installation
 
-This library could be found on [Packagist](https://packagist.org/packages/limen/redmodel "") for an easier management of projects dependencies using [Composer](https://getcomposer.org/ "").
+Recommend to install via [composer](https://getcomposer.org/ "").
+
+```bash
+composer require "limen/fileflake"
+```
 
 ### Usage
 
