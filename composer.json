@@ -7,17 +7,20 @@
   "authors": [
     {
       "name": "LI Mengxiang",
-      "mail": "limengxiang876@gmail.com",
+      "email": "limengxiang876@gmail.com",
       "homepage": "https://github.com/limen"
     }
   ],
   "license" : "MIT",
   "require": {
-    "illuminate/support": "5.2.*",
-    "illuminate/database": "5.2.*",
-    "illuminate/config": "5.2.*",
-    "illuminate/http": "5.2.*",
-    "jenssegers/mongodb": "2.3.* || 3.0.*"
+    "php": ">=5.5.9",
+    "laravel/lumen-framework": "5.2.*",
+    "mongodb/mongodb": "^1.0.0",
+    "jenssegers/mongodb": "^3.0",
+    "limen/redmodel": ">=0.1.3"
+  },
+  "require-dev": {
+    "phpunit/phpunit": "~4.8"
   },
   "autoload": {
     "psr-4": {

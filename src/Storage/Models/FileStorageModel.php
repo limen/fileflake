@@ -1,23 +1,24 @@
 <?php
+/*
+ * This file is part of the Fileflake package.
+ *
+ * (c) LI Mengxiang <limengxiang876@gmail.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
 namespace Limen\Fileflake\Storage\Models;
 
 use Limen\Fileflake\Config;
 
-/**
- * @author Li Mengxiang
- * @email limengxiang876@gmail.com
- * @since 2016/6/7 10:22
- */
-class FileNodeModel
+class FileStorageModel
 {
-    protected $collection = 'FileHouse';
-
     /** @var  BaseModel */
     protected $model;
 
     public function __construct($nodeId)
     {
-        $nodeConfig = Config::getFileNodeConfig($nodeId);
+        $nodeConfig = Config::getFileContentStorageConfig($nodeId);
         $this->model = (new BaseModel())
             ->setCollection($nodeConfig['collection'])
             ->setConnection($nodeConfig['connection']);
@@ -53,7 +54,7 @@ class FileNodeModel
      */
     public function get($chunkId)
     {
-        $row = $this->model->ofId($chunkId);
+        $row = $this->model->findById($chunkId);
 
         return $row ? $row['content'] : null;
     }

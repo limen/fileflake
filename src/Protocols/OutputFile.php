@@ -1,38 +1,48 @@
 <?php
-namespace Limen\Fileflake\Protocols;
-/**
- * @author Li Mengxiang
- * @email limengxiang876@gmail.com
- * @since 2016/6/16 14:38
+/*
+ * This file is part of the Fileflake package.
  *
- * @property string   path      file path on local system
- * @property string   name      file name
- * @property int      size      file size in byte
- * @property string   extension file extension
- * @property string   mime      file mime
+ * (c) LI Mengxiang <limengxiang876@gmail.com>
  *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
-class OutputFile
+namespace Limen\Fileflake\Protocols;
+
+use Limen\Fileflake\Config;
+use Limen\Fileflake\Storage\FileContentStorage;
+use Limen\Fileflake\Support\FileUtil;
+
+class OutputFile extends FileProtocol
 {
-    protected $attributes = [];
-
-    public function __construct($name, $path, $size = null, $extension = null, $mime = null)
+    /**
+     * make local file
+     * @param FileContentStorage $storageNode
+     * @return $this
+     */
+    public function localize($storageNode)
     {
-        $this->attributes['name'] = $name;
-        $this->attributes['path'] = $path;
-        $this->attributes['size'] = $size;
-        $this->attributes['extension'] = $extension;
-        $this->attributes['mime'] = $mime;
+        $file = Config::get(Config::KEY_LOCALIZE_DIR) . '/' . $this->id;
+
+        if (file_exists($file)) {
+            unlink($file);
+        }
+
+        foreach ($this->chunkIds as $chunkId) {
+            $content = $storageNode->getChunk($chunkId);
+            FileUtil::appendStreamToFile($content, $file);
+        }
+
+        $this->path = $file;
+
+        return $this;
     }
 
-    public function __get($attr)
+    /**
+     * Delete local file
+     */
+    public function delete()
     {
-        return isset($this->attributes[$attr]) ? $this->attributes[$attr] : null;
+        unlink($this->path);
     }
-
-    public function toArray()
-    {
-        return $this->attributes;
-    }
-
 }

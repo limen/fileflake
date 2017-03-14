@@ -7,9 +7,9 @@
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
-namespace Limen\Fileflake\Protocols;
+namespace Limen\Fileflake\Exceptions;
 
-class InputFile extends FileProtocol
+class Exception extends \Exception
 {
     //
 }

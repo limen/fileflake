@@ -1,105 +1,194 @@
 <?php
-/**
- * @author Li Mengxiang
- * @email limengxiang876@gmail.com
- * @since 2016/6/8 10:52
+/*
+ * This file is part of the Fileflake package.
+ *
+ * (c) LI Mengxiang <limengxiang876@gmail.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
-
 namespace Limen\Fileflake;
 
-use Limen\Fileflake\Exceptions\FileException;
-use Limen\Fileflake\Lockers\FileLocker;
-use Limen\Fileflake\Lockers\LockerInterface;
+use Limen\Fileflake\Contracts\FileMetaContract;
+use Limen\Fileflake\Contracts\HandlerContract;
+use Limen\Fileflake\Contracts\LockContract;
+use Limen\Fileflake\Contracts\UidGeneratorContract;
+use Limen\Fileflake\Exceptions\Exception;
+use Limen\Fileflake\Handlers\FileContentStorageHandler;
+use Limen\Fileflake\Handlers\NodeMetaHandler;
+use Limen\Fileflake\Lock\RedLock;
 use Limen\Fileflake\Protocols\InputFile;
 use Limen\Fileflake\Protocols\OutputFile;
-use Limen\Fileflake\Storage\FileContainer;
-use Limen\Fileflake\Storage\Handlers\NodeMetaHandler;
-use Limen\Fileflake\Storage\Handlers\StorageNodeHandler;
-use Limen\Fileflake\Storage\Meta\FileMeta;
-use Limen\Fileflake\Storage\StorageNodeSelector;
-use Limen\Fileflake\Support\UidGenerator;
-use Limen\Fileflake\Config;
+use Limen\Fileflake\Storage\FileMetaStorage;
 
 class Fileflake
 {
-    /** @var LockerInterface */
-    protected $locker;
+    /** @var UidGeneratorContract */
+    protected $uidGenerator;
 
-    public function __construct(array $config, LockerInterface $locker = null)
+    /** @var FileMetaStorage */
+    protected $fileMetaStorage;
+
+    /** @var LockContract */
+    protected $lock;
+
+    /** @var HandlerContract[] */
+    protected $handlers = [];
+
+    public function __construct(array $config)
     {
         Config::load($config);
-        $this->locker = $locker ?: new FileLocker();
+        $this->setUidGenerator();
+        $this->setLock();
+        $this->setFileMetaStorage();
+        $this->setDefaultHandlers();
     }
 
-    public function put($path, $name, $size, $extension, $mimeType)
+    /**
+     * Config fileflake
+     * @param string $key
+     * @param mixed $value
+     * @return $this
+     */
+    public function config($key, $value)
     {
+        Config::set($key, $value);
 
-        /** @var InputFile $fileInfo */
-        $fileInfo = new InputFile($path, $name, $size, $extension, $mimeType);
+        return $this;
+    }
 
-        $fid = UidGenerator::id($fileInfo->checksum);
-        // lock the file while uploading
-        if (!$this->locker->lock($fid)) {
-            FileException::pop('Fail to lock file. Try later.');
-        }
-
-        $fileInfo->id($fid);
-
-        $fileMeta = new FileMeta();
-
-        $fileContainer = new FileContainer();
-
-        $fileContainer->addHandler(new StorageNodeHandler());
-        $fileContainer->addHandler(new NodeMetaHandler());
-
-        $fileMeta->setFileContainer($fileContainer);
-
-        if ($sourceFileInfo = $fileMeta->checkExist($fileInfo)) {
-            // make the upload file a soft link
-            // which refers to the source file
-            // lock the source file first to prevent from being deleted
-            if (! $this->locker->lock($sourceFileInfo->id)) {
-                FileException::pop('Fail to lock file. Try later.');
-            }
-            $fileMeta->softLink($fileInfo, $sourceFileInfo);
-            $this->locker->unlock($sourceFileInfo->id);
+    /**
+     * @param UidGeneratorContract $generator
+     * @return $this
+     * @throws Exception
+     */
+    public function setUidGenerator($generator = null)
+    {
+        if ($generator) {
+            $this->uidGenerator = $generator;
         } else {
-            $fileInfo->nodeId = (new StorageNodeSelector())->getNodeId();
-            $fileMeta->add($fileInfo);
+            $className = Config::get(Config::KEY_CONTRACT_CONCRETE_MAP . '.' . UidGeneratorContract::class);
+            if (!$className) {
+                throw new Exception(UidGeneratorContract::class . '\'s concrete class not set.');
+            }
+            $this->uidGenerator = new $className();
         }
 
-        $fileContainer->dump();
+        return $this;
+    }
 
-        $this->locker->unlock($fid);
+    /**
+     * @param null $storage
+     * @return $this
+     * @throws Exception
+     */
+    public function setFileMetaStorage($storage = null)
+    {
+        if ($storage) {
+            $this->fileMetaStorage = $storage;
+        } else {
+            $className = Config::get(Config::KEY_CONTRACT_CONCRETE_MAP . '.' . FileMetaContract::class);
+            if (!$className) {
+                throw new Exception(FileMetaContract::class . '\'s concrete class not set.');
+            }
+            $this->fileMetaStorage = new $className();
+        }
 
-        return $fileInfo->id;
+        return $this;
+    }
+
+    /**
+     * @param LockContract|null $lock
+     * @return $this
+     * @throws Exception
+     */
+    public function setLock($lock = null)
+    {
+        if ($lock) {
+            $this->lock = $lock;
+        } else {
+            $className = Config::get(Config::KEY_CONTRACT_CONCRETE_MAP . '.' . LockContract::class, RedLock::class);
+            if (!$className) {
+                throw new Exception(LockContract::class . '\'s concrete class not set.');
+            }
+            $this->lock = new $className();
+        }
+
+        return $this;
+    }
+
+    /**
+     * @param HandlerContract $handler
+     * @return $this
+     */
+    public function addHandler(HandlerContract $handler)
+    {
+        FileContainer::getInstance()->addHandler($handler);
+
+        return $this;
+    }
+
+    /**
+     * @param $handler
+     * @return $this
+     */
+    public function removeHandler($handler)
+    {
+        FileContainer::getInstance()->removeHandler($handler);
+
+        return $this;
+    }
+
+    /**
+     * @param $id
+     * @return OutputFile|null
+     */
+    public function getMeta($id)
+    {
+        return $this->fileMetaStorage->get($id);
+    }
+
+    /**
+     * @param InputFile $inputFile
+     * @return mixed
+     */
+    public function put($inputFile)
+    {
+        $inputFile->setId($this->uidGenerator->generate());
+
+        if ($sourceFile = $this->fileMetaStorage->getSource($inputFile)) {
+            $this->lock->lock($sourceFile->getId());
+            $this->fileMetaStorage->makeSoftLink($inputFile, $sourceFile);
+            $this->lock->unlock($sourceFile->getId());
+        } else {
+            $inputFile->nodeId = LoadBalancer::getInstance()->select()->getId();
+            $this->fileMetaStorage->add($inputFile);
+        }
+
+        FileContainer::getInstance()->dump();
+
+        $this->lock->unlock($inputFile->getId());
+
+        return $inputFile->getId();
     }
 
     /**
      * @param $id string
-     * @param bool $localize
      * @return OutputFile|null
      */
-    public function get($id, $localize = true)
+    public function get($id)
     {
-        $fileMeta = new FileMeta();
-        $fileInfo = $fileMeta->get($id);
+        $file = $this->getMeta($id);
 
-        if ($fileInfo === null) {
-            FileException::pop("The file \"$id\" doesn't exist.");
-        }
+        $storage = LoadBalancer::getInstance()->get($file->nodeId);
 
-        if ($localize) {
-            $fileInfo->localize();
-        }
+        $file->localize($storage);
 
-        return new OutputFile(
-            $fileInfo->name,
-            $fileInfo->path,
-            $fileInfo->size,
-            $fileInfo->extension,
-            $fileInfo->mimeType
-        );
+        FileContainer::getInstance()->touch($file);
+
+        FileContainer::getInstance()->dump();
+
+        return $file;
     }
 
     /**
@@ -109,26 +198,30 @@ class Fileflake
      */
     public function remove($id)
     {
-        // wait if the file is locked
-        if (!$this->locker->lock($id)) {
-            FileException::pop("The file \"$id\" is locked. Try later.");
+        $file = $this->fileMetaStorage->get($id);
+
+        if ($file === null) {
+            return false;
         }
 
-        $fileMeta = new FileMeta();
+        $this->fileMetaStorage->remove($file);
 
-        $fileContainer = new FileContainer();
+        FileContainer::getInstance()->dump();
 
-        $fileContainer->addHandler(new StorageNodeHandler());
-        $fileContainer->addHandler(new NodeMetaHandler());
-
-        $fileMeta->setFileContainer($fileContainer);
-
-        $fileMeta->remove($id);
-
-        $fileContainer->dump();
-
-        $this->locker->unlock($id);
+        $this->lock->unlock($id);
 
         return true;
+    }
+
+    /**
+     * @return $this
+     */
+    protected function setDefaultHandlers()
+    {
+        FileContainer::getInstance()->addHandler(new FileContentStorageHandler());
+
+        FileContainer::getInstance()->addHandler(new NodeMetaHandler());
+
+        return $this;
     }
 }

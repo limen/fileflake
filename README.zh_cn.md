@@ -25,76 +25,65 @@ composer require "limen/fileflake"
 
 ```php
 use Limen\Fileflake\Config;
-use Limen\Fileflake\Fileflake;
-use Limen\Fileflake\Protocols\OutputFile;
 
-class FileController
-{
-    protected $config = [
-        Config::KEY_FILE_META_CONNECTION => 'mongodb_fileflake',    // file meta connection
-        Config::KEY_FILE_META_COLLECTION => 'FileMeta',             // file meta collection
-        Config::KEY_NODE_META_CONNECTION => 'mongodb_fileflake',    // node meta connection
-        Config::KEY_NODE_META_COLLECTION => 'NodeMeta',             // node meta collection
+$config = [
+    Config::KEY_FILE_META_CONNECTION => 'mongodb',          // required, file meta connection
+    Config::KEY_FILE_META_COLLECTION => 'FileMeta',         // required, file meta collection
+    Config::KEY_NODE_META_CONNECTION => 'mongodb',          // required, node meta connection
+    Config::KEY_NODE_META_COLLECTION => 'NodeMeta',         // required, node meta collection
 
-        Config::KEY_FILE_CHUNK_SIZE => 4194304,                     // chunk size on byte
+    Config::KEY_FILE_CHUNK_SIZE     => 51200,               // required, chunk size in byte
 
-        // if set to true, the load balance would consider file count and file volume of each storage node,
-        // or the load balance would pick one node randomly
-        Config::KEY_LOAD_BALANCE_STRICT => false,
+    // if set to true, the load balance would consider file count and file volume of each storage node,
+    // or the load balance would pick one node randomly
+    Config::KEY_LOAD_BALANCE_STRICT => true,                // optional, default value is false
 
-        Config::KEY_STORAGE_NODES => [
-            [
-                'id'         => 1,                          // storage node id, should be unique and unmodifiable
-                'connection' => 'mongodb_fileflake',        // storage node connection
-                'collection' => 'FileStore1',               // storage node collection
-            ],
-            [
-                'id'         => 2,
-                'connection' => 'mongodb_fileflake',
-                'collection' => 'FileStore2',
-            ],
+    // required
+    Config::KEY_FILE_CONTENT_STORAGE_NODES => [
+        [
+            'id'         => 1,                              // storage node id, should be unique and unmodifiable
+            'connection' => 'mongodb',                      // storage node connection
+            'collection' => 'FileStorage1',                 // storage node collection
         ],
+        [
+            'id'         => 2,
+            'connection' => 'mongodb',
+            'collection' => 'FileStorage2',
+        ],
+    ],
 
-        Config::KEY_LOCALIZE_DIR     => '/home/www/tmp/fileflake/local',    // the temp local files stored in this directory
-        Config::KEY_LOCKER_FILES_DIR => '/home/www/tmp/fileflake/locker',   // the locker files stored in this directory
-    ];
-    
+    Config::KEY_LOCALIZE_DIR     => '/tmp/fileflake/localize',      // required, the temp local files stored in this directory
 
-    public function upload()
-    {
-        $fileflake = new Fileflake($this->config);
+    // optional, see default values below
+    Config::KEY_CONTRACT_CONCRETE_MAP => [
+        \Limen\Fileflake\Contracts\UidGeneratorContract::class => \Limen\Fileflake\Support\UidGenerator::class,
+        \Limen\Fileflake\Contracts\BalancerContract::class => \Limen\Fileflake\LoadBalancer::class,
+        \Limen\Fileflake\Contracts\LockContract::class => \Limen\Fileflake\Lock\RedLock::class,
+        \Limen\Fileflake\Contracts\FileContainerContract::class => \Limen\Fileflake\FileContainer::class,
+        \Limen\Fileflake\Contracts\FileMetaContract::class => \Limen\Fileflake\Storage\FileMetaStorage::class,
+    ],
+];
 
-        // file id is a string of 32 characters
-        $fildId = $fileflake->put(
-            '/tmp/abc',             // file local path
-            'tulips.jpg',           // file name
-            '879394',               // file size on byte
-            'jpg',                  // file extension
-            'mime/jpeg'             // file mime
-        );
-    }
-    
+$filePath = '/path/to/file';
+$file = new \Limen\Fileflake\Protocols\InputFile($filePath, 'fileflake.png', filesize($filePath), 'png', 'image/png');
+$fileflake = new \Limen\Fileflake\Fileflake($config);
 
-    public function download()
-    {
-        $fileflake = new Fileflake($this->config);
+/** @var string $fileId md5 */
+$fileId = $fileflake->put($file);
+/** @var \Limen\Fileflake\Protocols\OutputFile $fileMeta no local copy */
+$fileMeta = $fileflake->getMeta($fileId);
+/** @var \Limen\Fileflake\Protocols\OutputFile $fileMeta have a local copy */
+$localFile = $fileflake->get($fileId);
+/** @var string $localName path to local copy */
+$localFilePath = $localFile->path;
 
-        /** @var OutputFile $file */
-        $file = $fileflake->get('5031a3057c8cff6fde3a4118187798bb');
-    }
-    
+// remove file
+$fileflake->remove($fileId);
 
-    public function remove()
-    {
-        $fileflake = new Fileflake($this->config);
-
-        $fileflake->remove('5031a3057c8cff6fde3a4118187798bb');
-    }
-
-}
+$fileflake->get($fileId);           // return null
 ```
 
-## 技术细节 
+## 理念
 
 ### 文件元数据
 

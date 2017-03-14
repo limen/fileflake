@@ -1,14 +1,18 @@
 <?php
-/**
- * @author Li Mengxiang
- * @email limengxiang876@gmail.com
- * @since 2016/6/7 10:21
+/*
+ * This file is part of the Fileflake package.
+ *
+ * (c) LI Mengxiang <limengxiang876@gmail.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
 namespace Limen\Fileflake\Storage\Models;
 
 use Limen\Fileflake\Config;
+use Limen\Fileflake\Protocols\FileProtocol;
 use Limen\Fileflake\Protocols\InputFile;
-use Limen\Fileflake\Traits\ModelTrait;
+use Limen\Fileflake\Protocols\OutputFile;
 
 /**
  * Class FileMetaModel
@@ -27,25 +31,8 @@ use Limen\Fileflake\Traits\ModelTrait;
  */
 class FileMetaModel
 {
-    use ModelTrait;
-
     /** @var BaseModel */
     protected $model;
-
-    protected $columns = [
-        '_id',
-        'name',
-        'nodeId',
-        'checksum',
-        'reference',
-        'refCount',
-        'size',
-        'extension',
-        'deleted',
-        'chunkSize',
-        'chunkIds',
-        'mimeType',
-    ];
 
     public function __construct()
     {
@@ -61,46 +48,55 @@ class FileMetaModel
     public function add($fileInfo)
     {
         if ($fileInfo) {
-            $fileInfo = $fileInfo->toArray();
-            $fileInfo[$this->model->getKeyName()] = $fileInfo['id'];
-            return $this->model->insert($this->filterAttributes($fileInfo, $this->columns));
+            return $this->model->insert($fileInfo->toArray());
         }
 
         return false;
     }
 
+    /**
+     * @param $fid
+     * @return mixed
+     */
     public function remove($fid)
     {
         return $this->model->deleteById($fid);
     }
 
     /**
-     * @param $fileInfo InputFile
-     * @return InputFile
+     * @param $fileInfo FileProtocol
+     * @return FileProtocol
      */
     public function softRemove($fileInfo)
     {
         $fileInfo->refCount--;
         $fileInfo->deleted = 1;
-        $this->model->updateOne($fileInfo->id, $this->filterAttributes($fileInfo->toArray(), $this->columns));
+        $this->model->updateOne($fileInfo->getId(), $fileInfo->toArray());
         return $fileInfo;
     }
 
     /**
      * @param $fid
-     * @param bool $nonDeleted get none deleted file if true
-     * @return null|InputFile
+     * @return null|OutputFile
      */
-    public function getById($fid, $nonDeleted = false)
+    public function getById($fid)
     {
         /** @var static $row */
-        $row = $this->model->ofId($fid);
+        $row = $this->model->findById($fid);
 
-        if ($nonDeleted && $row && $row->deleted) {
-            return null;
-        }
+        return $row && $row->deleted === 0 ? OutputFile::initByMeta($row) : null;
+    }
 
-        return $row ? InputFile::initWithFileMeta($row) : null;
+    /**
+     * @param $fid
+     * @return null|OutputFile
+     */
+    public function getSourceById($fid)
+    {
+        /** @var static $row */
+        $row = $this->model->findById($fid);
+
+        return $row ? OutputFile::initByMeta($row) : null;
     }
 
     /**
@@ -112,38 +108,30 @@ class FileMetaModel
         /** @var static $row */
         $row = $this->model->ofChecksum($checksum);
 
-        return $row ? InputFile::initWithFileMeta($row) : null;
+        return $row ? InputFile::initByMeta($row) : null;
     }
 
     /**
-     * @param $file InputFile
-     * @param $refTo InputFile
+     * @param $link FileProtocol
+     * @param $source FileProtocol
      */
-    public function setFileReference($file, $refTo)
+    public function setFileReference($link, $source)
     {
-        $file = $file->toArray();
-        $file[$this->model->getKeyName()] = $file['id'];
-        $file['reference'] = $refTo->id;
-        $file['nodeId'] = $refTo->nodeId;
+        $link->reference = $source->id;
+        $link->nodeId = $source->nodeId;
+        $data = $link->toArray();
         // unset checksum
-        unset($file['checksum']);
-        return $this->model->insert($this->filterAttributes($file, $this->columns));
+        unset($data['checksum']);
+        return $this->model->insert($data);
     }
 
     /**
-     * @param $file InputFile
+     * @param $file FileProtocol
      * @return bool
      */
-    public function incrFileRefCount($file)
+    public function increaseRefCount($file)
     {
-        /** @var static $row */
-        $row = $this->model->ofId($file->id);
-        if ($row) {
-            return $this->model->updateOne($file->id, [
-                'refCount' => $row->refCount + 1,
-            ]);
-        }
-        return false;
+        return $this->model->increaseRefCount($file->id);
     }
 
     /**
@@ -153,10 +141,10 @@ class FileMetaModel
     public function decrFileRefCount($file)
     {
         /** @var static $row */
-        $row = $this->model->ofId($file->id);
+        $row = $this->model->findById($file->id);
         $row->refCount--;
 
-        $fileInfo = InputFile::initWithFileMeta($row);
+        $fileInfo = InputFile::initByMeta($row);
 
         if ($row->refCount == 0) {
             $this->model->deleteById($row->id);
@@ -170,15 +158,15 @@ class FileMetaModel
 
     /**
      * @param $fid
-     * @return InputFile
+     * @return FileProtocol
      */
     public function decrFileRefCountById($fid)
     {
         /** @var static $row */
-        $row = $this->model->ofId($fid);
+        $row = $this->model->findById($fid);
         $row->refCount--;
 
-        $fileInfo = InputFile::initWithFileMeta($row);
+        $fileInfo = FileProtocol::initByMeta($row);
 
         if ($row->refCount == 0) {
             $this->model->deleteById($row->id);

@@ -1,34 +1,23 @@
 <?php
-/**
- * @author Li Mengxiang
- * @email limengxiang876@gmail.com
- * @since 2016/6/7 13:47
+/*
+ * This file is part of the Fileflake package.
+ *
+ * (c) LI Mengxiang <limengxiang876@gmail.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
-
 namespace Limen\Fileflake\Storage\Models;
 
 use Jenssegers\Mongodb\Eloquent\Model as Eloquent;
 
 class BaseModel extends Eloquent
 {
-
     protected static $columns;
 
     protected $connection;
 
     protected $collection;
-
-    public function filterColumns(array $data, array $validColumns)
-    {
-        $data = array_only($data, $validColumns);
-        foreach ($data as $k => $v) {
-            $method = 'cast' . ucfirst($k) . 'Attribute';
-            if (method_exists($this, $method)) {
-                $data[$k] = $this->$method($v);
-            }
-        }
-        return $data;
-    }
 
     /**
      * @param $name string collection name
@@ -45,7 +34,7 @@ class BaseModel extends Eloquent
      * @param $id
      * @return static
      */
-    public function ofId($id)
+    public function findById($id)
     {
         return $this->where($this->getKeyName(), $id)->take(1)->first();
     }
@@ -79,7 +68,16 @@ class BaseModel extends Eloquent
      */
     public function updateOne($id, array $attributes)
     {
+        if (isset($attributes['_id'])) {
+            unset($attributes['_id']);
+        }
+
         return $this->where($this->getKeyName(), $id)->update($attributes);
+    }
+
+    public function increaseRefCount($id)
+    {
+        return $this->where($this->getKeyName(), $id)->increment('refCount');
     }
 
 }

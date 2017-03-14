@@ -7,9 +7,13 @@
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
-namespace Limen\Fileflake\Protocols;
+namespace Limen\Fileflake\Contracts;
 
-class InputFile extends FileProtocol
+interface LockContract
 {
-    //
+    public function lock($id);
+
+    public function unlock($id);
+
+    public function isLocked($id);
 }

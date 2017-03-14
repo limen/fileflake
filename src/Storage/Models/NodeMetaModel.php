@@ -1,14 +1,17 @@
 <?php
+/*
+ * This file is part of the Fileflake package.
+ *
+ * (c) LI Mengxiang <limengxiang876@gmail.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
 namespace Limen\Fileflake\Storage\Models;
 
 use Limen\Fileflake\Config;
-use Limen\Fileflake\Protocols\InputFile;
+use Limen\Fileflake\Protocols\FileProtocol;
 
-/**
- * @author Li Mengxiang
- * @email limengxiang876@gmail.com
- * @since 2016/6/7 10:21
- */
 class NodeMetaModel
 {
     /** @var  BaseModel */
@@ -23,16 +26,16 @@ class NodeMetaModel
 
     /**
      * Update node meta after uploading file
-     * @param $fileInfo InputFile
+     * @param FileProtocol $fileInfo
      * @return mixed
      */
     public function add($fileInfo)
     {
-        $node = $this->model->ofId($fileInfo->nodeId);
+        $node = $this->model->findById($fileInfo->nodeId);
         if ($node) {
             return $this->model->updateOne($fileInfo->nodeId, [
                 'fileCount' => $node->fileCount + 1,
-                'volume' => $node->volume + $fileInfo->size / 1024,
+                'volume'    => $node->volume + $fileInfo->size / 1024,
             ]);
         }
         return $this->model->insert([
@@ -44,17 +47,17 @@ class NodeMetaModel
 
     /**
      * Update node meta after removing file
-     * @param $fileInfo InputFile
+     * @param FileProtocol $fileInfo
      * @return bool
      */
     public function remove($fileInfo)
     {
         /** @var NodeMeta $node */
-        $node = $this->model->ofId($fileInfo->nodeId);
+        $node = $this->model->findById($fileInfo->nodeId);
         if ($node) {
             return $this->model->updateOne($node->id, [
                 'fileCount' => $node->fileCount - 1,
-                'volume' => $node->volume - $fileInfo->size,
+                'volume'    => $node->volume - $fileInfo->size,
             ]);
         }
         return false;
@@ -67,7 +70,7 @@ class NodeMetaModel
      */
     public function get($nodeId)
     {
-        return $this->model->ofId($nodeId);
+        return $this->model->findById($nodeId);
     }
 
     /**

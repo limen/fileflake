@@ -1,10 +1,12 @@
 <?php
-/**
- * @author Li Mengxiang
- * @email limengxiang876@gmail.com
- * @since 2016/5/17 11:39
+/*
+ * This file is part of the Fileflake package.
+ *
+ * (c) LI Mengxiang <limengxiang876@gmail.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
  */
-
 namespace Limen\Fileflake\Support;
 
 /**
@@ -21,7 +23,7 @@ class FileUtil
      * @param null|int $maxLen
      * @return bool|string
      */
-    public static function fileToString($fileName, $offset = null, $maxLen = null)
+    public static function getFileStream($fileName, $offset = null, $maxLen = null)
     {
         $content = file_get_contents($fileName, null, null, $offset, $maxLen);
         $strArray = unpack(static::PACK_FORMAT, $content);
@@ -29,18 +31,22 @@ class FileUtil
     }
 
     /**
-     * @param $str string file content
+     * @param $stream string file stream
      * @param $fileName string file name to save $str
      */
-    public static function appendStringToFile($str, $fileName)
+    public static function appendStreamToFile($stream, $fileName)
     {
-        $fileContent = pack(static::PACK_FORMAT, $str);
+        $fileContent = pack(static::PACK_FORMAT, $stream);
         file_put_contents($fileName, $fileContent, FILE_APPEND);
     }
 
+    /**
+     * Get checksum of file
+     * @param $file
+     * @return string
+     */
     public static function fileChecksum($file)
     {
         return md5_file($file);
     }
-
 }
