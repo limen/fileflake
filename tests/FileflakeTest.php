@@ -54,47 +54,61 @@ class FileflakeTest extends \Laravel\Lumen\Testing\TestCase
     {
         $this->init();
 
-        $file = $this->getTmpImage();
+        $fileIds = [];
 
+        $file = $this->getTmpImage();
         $fileId = $this->fileflake->put($file);
 
+        $fileIds[] = $fileId;
+
         $fileMeta = $this->fileflake->getMeta($fileId);
-        $this->assertEquals(1, $fileMeta->refCount);
         $this->assertEquals($fileMeta->name, $file->name);
         $this->assertEquals($fileMeta->size, $file->size);
         $this->assertEquals($fileMeta->extension, $file->extension);
         $this->assertEquals($fileMeta->mime, $file->mime);
-        $this->assertEquals(count($fileMeta->chunkIds), ceil($fileMeta->size / Config::get(Config::KEY_FILE_CHUNK_SIZE)));
 
-        if ($fileMeta->reference) {
-            $source = $this->fileflake->getMeta($fileMeta->reference);
-            $this->assertEquals($fileMeta->chunkIds, $source->chunkIds);
-            $refCount = $source->refCount;
-        } else {
+        $source = null;
+
+        if (!$fileMeta->reference) {
+            $this->assertEquals(1, $fileMeta->refCount);
+            $this->assertEquals(count($fileMeta->chunkIds), ceil($fileMeta->size / Config::get(Config::KEY_FILE_CHUNK_SIZE)));
             $source = $fileMeta;
-            $refCount = 1;
+        } else {
+            $source = $this->fileflake->getSourceMeta($fileMeta->reference);
+        }
+        $sourceRefCount = $source->refCount;
+
+        $softLinkCount = rand(1,10);
+
+        for ($i=0; $i < $softLinkCount; $i++) {
+            $file = $this->getTmpImage();
+            $softId = $this->fileflake->put($file);
+            $softMeta = $this->fileflake->getMeta($softId);
+            if (!$fileMeta->reference) {
+                $this->assertEquals($softMeta->chunkIds, $fileMeta->chunkIds);
+            }
+            $fileIds[] = $softId;
         }
 
-        $softLinkId = $this->fileflake->put($file);
+        $sourceRefCountNew = $this->fileflake->getSourceMeta($source->getId())->refCount;
 
-        $source = $this->fileflake->getMeta($source->getId());
-        $this->assertEquals($refCount + 1, $source->refCount);
+        $this->assertEquals($sourceRefCount + $softLinkCount, $sourceRefCountNew);
 
-        return $softLinkId;
+        return $fileIds;
     }
 
     /**
      * @depends testCreate
      */
-    public function testGet($fileId)
+    public function testGet($fileIds)
     {
         $this->init();
 
         $uploadFile = $this->getTmpImage();
 
-        $file = $this->fileflake->get($fileId);
+        $file = $this->fileflake->get($fileIds[0]);
 
-        $this->assertEquals(FileUtil::fileChecksum($file->path), FileUtil::fileChecksum($uploadFile->path));
+        $this->assertEquals(FileUtil::checksum($file->path), FileUtil::checksum($uploadFile->path));
 
         $file->delete();
         $this->assertFalse(file_exists($file->path));
@@ -103,32 +117,51 @@ class FileflakeTest extends \Laravel\Lumen\Testing\TestCase
     /**
      * @depends testCreate
      */
-    public function testRemove($fileId)
+    public function testRemove($fileIds)
     {
         $this->init();
 
-        $fileMeta = $this->fileflake->getMeta($fileId);
+        $firstFile = $this->fileflake->getMeta($fileIds[0]);
 
-        $sourceId = null;
-        $isLink = false;
-        if ($fileMeta->reference) {
-            $isLink = true;
-            $source = $this->fileflake->getMeta($fileMeta->reference);
-            $sourceId = $source->getId();
-            $refCount = $source->refCount;
+        $nodeId = $firstFile->nodeId;
+        $chunkIds = $firstFile->chunkIds;
+
+        if ($firstFile->reference) {
+            $sourceFile = $this->fileflake->getSourceMeta($firstFile->reference);
+            $sourceRefCount = $sourceFile->refCount;
+            $sourceId = $sourceFile->getId();
+        } else {
+            $sourceRefCount = $firstFile->refCount;
+            $sourceId = $firstFile->getId();
         }
 
-        $this->fileflake->remove($fileId);
+        $this->assertGreaterThanOrEqual(count($fileIds), $sourceRefCount);
 
-        $fileMeta = $this->fileflake->getMeta($fileId);
-        $this->assertNull($fileMeta);
+        foreach ($fileIds as $id) {
+            $this->fileflake->remove($id);
 
-        if ($isLink) {
-            $sourceMeta = $this->fileflake->getMeta($sourceId);
-            if ($refCount > 1) {
-                $this->assertEquals($refCount - 1, $sourceMeta->refCount);
-            } else {
-                $this->assertNull($sourceMeta);
+            $sourceRefCount--;
+
+            if ($sourceRefCount > 0) {
+                $sourceRefCountNew = $this->fileflake->getSourceMeta($sourceId)->refCount;
+                $this->assertEquals($sourceRefCount, $sourceRefCountNew);
+            }
+        }
+
+        $storageNode = \Limen\Fileflake\LoadBalancer::getInstance()->get($nodeId);
+        if ($sourceRefCount == 0) {
+            $sourceFile = $this->fileflake->getMeta($firstFile->reference);
+            $this->assertNull($sourceFile);
+            foreach ($chunkIds as $chunkId) {
+                $chunk = $storageNode->getChunk($chunkId);
+                $this->assertNull($chunk);
+            }
+        } else {
+            $sourceFile = $this->fileflake->getMeta($firstFile->reference);
+            $this->assertFalse(is_null($sourceFile));
+            foreach ($chunkIds as $chunkId) {
+                $chunk = $storageNode->getChunk($chunkId);
+                $this->assertFalse(is_null($chunk));
             }
         }
     }
@@ -204,7 +237,7 @@ class FileflakeTest extends \Laravel\Lumen\Testing\TestCase
             file_put_contents($fileName, $content);
         }
 
-        $file = new InputFile($fileName, 'fileflake.png', filesize($fileName), 'png', 'image/png');
+        $file = InputFile::make($fileName, 'fileflake.png', filesize($fileName), 'png', 'image/png');
 
         return $file;
     }

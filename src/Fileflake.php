@@ -149,6 +149,16 @@ class Fileflake
     }
 
     /**
+     * Get source file meta
+     * @param $sourceId
+     * @return OutputFile|null
+     */
+    public function getSourceMeta($sourceId)
+    {
+        return $this->fileMetaStorage->getSourceMeta($sourceId);
+    }
+
+    /**
      * @param InputFile $inputFile
      * @return mixed
      */
@@ -156,7 +166,9 @@ class Fileflake
     {
         $inputFile->setId($this->uidGenerator->generate());
 
-        if ($sourceFile = $this->fileMetaStorage->getSource($inputFile)) {
+        $sourceFile = $this->fileMetaStorage->getSource($inputFile);
+
+        if ($sourceFile) {
             $this->lock->lock($sourceFile->getId());
             $this->fileMetaStorage->makeSoftLink($inputFile, $sourceFile);
             $this->lock->unlock($sourceFile->getId());

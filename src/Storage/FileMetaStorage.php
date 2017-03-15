@@ -69,26 +69,26 @@ class FileMetaStorage implements FileMetaContract
         if ($file->reference) {
             // soft link should be deleted immediately
             $this->fileMetaModel->remove($file->id);
-            $file->refCount--;
+            $file->decrRefCount();
 
             $involvedFiles[] = $file;
 
             // decrease the source file reference count by 1
-            $involvedFiles[] = $this->fileMetaModel->decrFileRefCountById($file->reference);
+            $involvedFiles[] = $this->fileMetaModel->decrRefCountById($file->reference);
         } else {
-            // Source file is deleted and some other files still refer to it, do nothing
-            if ($file->deleted && $file->refCount > 0) {
-                return false;
-            }
-            // soft delete
-            if ($file->refCount > 1) {
-                $file = $this->fileMetaModel->softRemove($file);
+            if ($file->deleted) {
+                $involvedFiles[] = $this->fileMetaModel->decrRefCountById($file->getId());
             } else {
-                $this->fileMetaModel->remove($file->id);
-                // make sure the storage node would remove the file
-                $file->refCount = 0;
+                // soft delete
+                if ($file->refCount > 1) {
+                    $file = $this->fileMetaModel->softRemove($file);
+                } else {
+                    $this->fileMetaModel->remove($file->id);
+                    // make sure the storage node would remove the file
+                    $file->refCount = 0;
+                }
+                $involvedFiles[] = $file;
             }
-            $involvedFiles[] = $file;
         }
 
         foreach ($involvedFiles as $file) {
@@ -97,12 +97,16 @@ class FileMetaStorage implements FileMetaContract
     }
 
     /**
-     * Check if there is a same file.
+     * Get source file by checksum
      * @param InputFile $file
      * @return FileProtocol|null
      */
     public function getSource($file)
     {
+        if (!$file->checksum) {
+            return null;
+        }
+
         $row = $this->fileMetaModel->getByChecksum($file->checksum);
 
         return $row;
@@ -116,10 +120,17 @@ class FileMetaStorage implements FileMetaContract
      */
     public function makeSoftLink($link, $source)
     {
-        // clean chunk Ids
-        $link->chunkIds = [];
         $this->fileMetaModel->setFileReference($link, $source);
         $this->fileMetaModel->increaseRefCount($source);
+    }
+
+    /**
+     * @param $sourceId
+     * @return OutputFile|null
+     */
+    public function getSourceMeta($sourceId)
+    {
+        return $this->fileMetaModel->getSourceById($sourceId);
     }
 
 }

@@ -32,16 +32,23 @@ class NodeMetaModel
     public function add($fileInfo)
     {
         $node = $this->model->findById($fileInfo->nodeId);
+
+        $now = time();
+
         if ($node) {
             return $this->model->updateOne($fileInfo->nodeId, [
-                'fileCount' => $node->fileCount + 1,
-                'volume'    => $node->volume + $fileInfo->size / 1024,
+                'fileCount'           => $node->fileCount + 1,
+                'volume'              => $node->volume + $this->castSize($fileInfo->size),
+                BaseModel::UPDATED_AT => $now,
             ]);
         }
+
         return $this->model->insert([
-            '_id'       => $fileInfo->nodeId,
-            'fileCount' => 1,
-            'volume'    => $fileInfo->size / 1024,
+            '_id'                 => $fileInfo->nodeId,
+            'fileCount'           => 1,
+            'volume'              => $this->castSize($fileInfo->size),
+            BaseModel::CREATED_AT => $now,
+            BaseModel::UPDATED_AT => $now,
         ]);
     }
 
@@ -55,11 +62,15 @@ class NodeMetaModel
         /** @var NodeMeta $node */
         $node = $this->model->findById($fileInfo->nodeId);
         if ($node) {
+            $now = time();
+
             return $this->model->updateOne($node->id, [
-                'fileCount' => $node->fileCount - 1,
-                'volume'    => $node->volume - $fileInfo->size,
+                'fileCount'           => $node->fileCount - 1,
+                'volume'              => $node->volume - $this->castSize($fileInfo->size),
+                BaseModel::UPDATED_AT => $now,
             ]);
         }
+
         return false;
     }
 
@@ -79,5 +90,10 @@ class NodeMetaModel
     public function getUsedNodes()
     {
         return $this->model->where('fileCount', '>', 0)->get()->toArray();
+    }
+
+    protected function castSize($sizeInByte)
+    {
+        return round($sizeInByte / 1024, 2);
     }
 }

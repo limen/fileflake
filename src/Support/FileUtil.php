@@ -45,7 +45,7 @@ class FileUtil
      * @param $file
      * @return string
      */
-    public static function fileChecksum($file)
+    public static function checksum($file)
     {
         return md5_file($file);
     }

@@ -23,6 +23,7 @@ use Limen\Fileflake\Protocols\OutputFile;
  * @property string name        File client name
  * @property string extension   File extension
  * @property string checksum    File ID
+ * @property string reference   Source file id
  * @property int refCount    File's reference count
  * @property int deleted     File is deleted or not
  * @property int nodeId      File storage node id
@@ -36,6 +37,11 @@ class FileMetaModel
 
     public function __construct()
     {
+        $this->init();
+    }
+
+    protected function init()
+    {
         $this->model = (new BaseModel())
             ->setConnection(Config::get(Config::KEY_FILE_META_CONNECTION))
             ->setCollection(Config::get(Config::KEY_FILE_META_COLLECTION));
@@ -48,7 +54,8 @@ class FileMetaModel
     public function add($fileInfo)
     {
         if ($fileInfo) {
-            return $this->model->insert($fileInfo->toArray());
+            $data = $fileInfo->toArrayForModel();
+            return $this->model->insert($data);
         }
 
         return false;
@@ -69,13 +76,14 @@ class FileMetaModel
      */
     public function softRemove($fileInfo)
     {
-        $fileInfo->refCount--;
+        $fileInfo->decrRefCount();
         $fileInfo->deleted = 1;
         $this->model->updateOne($fileInfo->getId(), $fileInfo->toArray());
         return $fileInfo;
     }
 
     /**
+     * Get file by id, should not deleted if source file
      * @param $fid
      * @return null|OutputFile
      */
@@ -84,10 +92,11 @@ class FileMetaModel
         /** @var static $row */
         $row = $this->model->findById($fid);
 
-        return $row && $row->deleted === 0 ? OutputFile::initByMeta($row) : null;
+        return $row && $row->deleted === 0 ? OutputFile::remake($row) : null;
     }
 
     /**
+     * Get source file by id
      * @param $fid
      * @return null|OutputFile
      */
@@ -96,7 +105,7 @@ class FileMetaModel
         /** @var static $row */
         $row = $this->model->findById($fid);
 
-        return $row ? OutputFile::initByMeta($row) : null;
+        return $row && empty($row->reference) ? OutputFile::remake($row) : null;
     }
 
     /**
@@ -106,9 +115,9 @@ class FileMetaModel
     public function getByChecksum($checksum)
     {
         /** @var static $row */
-        $row = $this->model->ofChecksum($checksum);
+        $row = $this->model->findByChecksum($checksum);
 
-        return $row ? InputFile::initByMeta($row) : null;
+        return $row ? InputFile::remake($row) : null;
     }
 
     /**
@@ -117,11 +126,13 @@ class FileMetaModel
      */
     public function setFileReference($link, $source)
     {
-        $link->reference = $source->id;
+        $link->reference = $source->getId();
         $link->nodeId = $source->nodeId;
-        $data = $link->toArray();
-        // unset checksum
-        unset($data['checksum']);
+        $link->chunkIds = $source->chunkIds;
+        $link->checksum = '';
+
+        $data = $link->toArrayForModel();
+
         return $this->model->insert($data);
     }
 
@@ -131,7 +142,7 @@ class FileMetaModel
      */
     public function increaseRefCount($file)
     {
-        return $this->model->increaseRefCount($file->id);
+        return $this->model->increaseRefCount($file->getId());
     }
 
     /**
@@ -142,9 +153,9 @@ class FileMetaModel
     {
         /** @var static $row */
         $row = $this->model->findById($file->id);
-        $row->refCount--;
+        $row->refCount = $row->refCount - 1;
 
-        $fileInfo = InputFile::initByMeta($row);
+        $fileInfo = InputFile::remake($row);
 
         if ($row->refCount == 0) {
             $this->model->deleteById($row->id);
@@ -160,13 +171,13 @@ class FileMetaModel
      * @param $fid
      * @return FileProtocol
      */
-    public function decrFileRefCountById($fid)
+    public function decrRefCountById($fid)
     {
         /** @var static $row */
         $row = $this->model->findById($fid);
-        $row->refCount--;
+        $row->refCount = $row->refCount - 1;
 
-        $fileInfo = FileProtocol::initByMeta($row);
+        $fileInfo = FileProtocol::remake($row);
 
         if ($row->refCount == 0) {
             $this->model->deleteById($row->id);

@@ -19,6 +19,10 @@ class BaseModel extends Eloquent
 
     protected $collection;
 
+    const CREATED_AT = 'createdAt';
+
+    const UPDATED_AT = 'updatedAt';
+
     /**
      * @param $name string collection name
      * @return $this
@@ -43,7 +47,7 @@ class BaseModel extends Eloquent
      * @param $checksum
      * @return static
      */
-    public function ofChecksum($checksum)
+    public function findByChecksum($checksum)
     {
         return $this->where('checksum', $checksum)->take(1)->first();
     }

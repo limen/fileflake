@@ -23,13 +23,14 @@ use Limen\Fileflake\Support\FileUtil;
  * @property int size         size on byte
  * @property string name        File client name
  * @property string extension   File extension
- * @property string checksum    File ID
+ * @property string checksum    File checksum
  * @property int refCount    File's reference count
  * @property int deleted     File is deleted or not
  * @property int nodeId      File storage node id
  * @property int chunkSize   chunk size
  * @property array chunkIds    chunk ids
- * @property string $mime    mime
+ * @property string mime    mime
+ * @property string createdAt
  */
 class FileProtocol
 {
@@ -47,29 +48,53 @@ class FileProtocol
         'chunkSize',
         'chunkIds',
         'mime',
+        BaseModel::CREATED_AT,
+        BaseModel::UPDATED_AT,
     ];
 
     protected $fileInfo = [];
 
-    public function __construct($path = null, $name = null, $size = null, $extension = null, $mime = null)
+    protected function __construct()
     {
-        $this->path = $path;
-        $this->name = $name;
-        $this->size = $size;
-        $this->extension = $extension;
-        $this->mime = $mime;
-        $this->refCount = 1;
-        $this->deleted = 0;
-        $this->reference = '';
-        $this->checksum = $this->path ? FileUtil::fileChecksum($this->path) : '';
-        $this->chunkSize = Config::get(Config::KEY_FILE_CHUNK_SIZE);
+        //
+    }
+
+    /**
+     * @param string $path
+     * @param string $name
+     * @param int|null $size
+     * @param string|null $extension
+     * @param string|null $mime
+     * @return static
+     * @throws Exception
+     */
+    public static function make($path, $name = null, $size = null, $extension = null, $mime = null)
+    {
+        if (!file_exists($path)) {
+            throw new Exception('File not exist: ' . $path);
+        }
+
+        $file = new static();
+
+        $file->path = $path;
+        $file->name = $name ?: basename($path);
+        $file->size = $size ?: filesize($file->path);
+        $file->extension = $extension;
+        $file->mime = $mime;
+        $file->refCount = 1;
+        $file->deleted = 0;
+        $file->reference = '';
+        $file->checksum = FileUtil::checksum($file->path);
+        $file->chunkSize = Config::get(Config::KEY_FILE_CHUNK_SIZE);
+
+        return $file;
     }
 
     /**
      * @param BaseModel $fileInfo
      * @return static
      */
-    public static function initByMeta(BaseModel $fileInfo)
+    public static function remake(BaseModel $fileInfo)
     {
         $instance = new static();
 
@@ -93,9 +118,39 @@ class FileProtocol
         return $this->id;
     }
 
+    public function incrRefCount($step = 1)
+    {
+        $this->refCount = $this->refCount + $step;
+
+        return $this;
+    }
+
+    public function decrRefCount($step = 1)
+    {
+        $this->refCount = $this->refCount - $step;
+
+        return $this;
+    }
+
     public function toArray()
     {
         return $this->fileInfo;
+    }
+
+    public function toArrayForModel()
+    {
+        $data = $this->toArray();
+        unset($data['path']);
+
+        $now = time();
+        if (!isset($data[BaseModel::CREATED_AT])) {
+            $data[BaseModel::CREATED_AT] = $now;
+        }
+        if (!isset($data[BaseModel::UPDATED_AT])) {
+            $data[BaseModel::UPDATED_AT] = $now;
+        }
+
+        return $data;
     }
 
     /**
