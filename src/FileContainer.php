@@ -24,12 +24,16 @@ class FileContainer implements FileContainerContract
 {
     /** @var static */
     protected static $instance;
+
     /** @var FileProtocol[] */
     protected $added = [];
+
     /** @var FileProtocol[] */
     protected $removed = [];
+
     /** @var FileProtocol[] */
     protected $touched = [];
+
     /** @var HandlerContract[] */
     protected $handlers = [];
 
@@ -94,8 +98,8 @@ class FileContainer implements FileContainerContract
                     $handler->handleAdded($file);
                 }
             }
-            if ($this->added) {
-                foreach ($this->added as $file) {
+            if ($this->touched) {
+                foreach ($this->touched as $file) {
                     $handler->handleTouched($file);
                 }
             }

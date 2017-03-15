@@ -16,13 +16,16 @@ use Limen\Fileflake\Storage\Models\NodeMetaModel;
 
 /**
  * Class LoadBalancer
+ *
  * @package Fileflake\Storage\Routers
  */
 class LoadBalancer implements BalancerContract
 {
     /** @var static */
     protected static $instance;
+
     private $availableNodes = [];
+
     private $usedNodes = [];
 
     protected function __construct()
@@ -68,13 +71,21 @@ class LoadBalancer implements BalancerContract
         return new FileContentStorage($id);
     }
 
-    private function pickRandomly()
+    /**
+     * Pick node randomly
+     * @return mixed
+     */
+    protected function pickRandomly()
     {
         $nodeIds = array_column($this->availableNodes, 'id');
         return $nodeIds[array_rand($nodeIds)];
     }
 
-    private function pickStrictly()
+    /**
+     * Pick node with considering load of all nodes
+     * @return bool|mixed
+     */
+    protected function pickStrictly()
     {
         $usedNodeIds = array_column($this->usedNodes, '_id');
         $avlNodeIds = array_column($this->availableNodes, 'id');
@@ -98,7 +109,10 @@ class LoadBalancer implements BalancerContract
         return $node ? $node['_id'] : false;
     }
 
-    private function getUsedNodes()
+    /**
+     * Get nodes not empty
+     */
+    protected function getUsedNodes()
     {
         $this->usedNodes = (new NodeMetaModel())->getUsedNodes();
     }
@@ -108,7 +122,7 @@ class LoadBalancer implements BalancerContract
      * @param $node2
      * @return bool
      */
-    private function compareNode($node1, $node2)
+    protected function compareNode($node1, $node2)
     {
         if ($node1['volume'] >= $node2['volume']) {
             return true;
@@ -118,5 +132,4 @@ class LoadBalancer implements BalancerContract
             return false;
         }
     }
-
 }
