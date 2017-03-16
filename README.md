@@ -14,6 +14,10 @@ A distributed file server utilizes mongodb(not mongo GridFS) as the storage back
 + file stream is divided into chunks and the chunk size is configurable
 + files have same checksum would only store one copy
 
+## System diagram
+
+![fileflake](https://github.com/limen/resources/blob/master/fileflake.png)
+
 ## Getting start
 
 ### Installation
