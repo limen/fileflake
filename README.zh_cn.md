@@ -74,8 +74,8 @@ $fileId = $fileflake->put($file);
 $fileMeta = $fileflake->getMeta($fileId);
 /** @var \Limen\Fileflake\Protocols\OutputFile $fileMeta have a local copy */
 $localFile = $fileflake->get($fileId);
-/** @var string $localName path to local copy */
-$localFilePath = $localFile->path;
+/** @var string $localPath path of local copy */
+$localPath = $localPath->path;
 
 // remove file
 $fileflake->remove($fileId);
