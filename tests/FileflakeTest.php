@@ -106,12 +106,19 @@ class FileflakeTest extends \Laravel\Lumen\Testing\TestCase
 
         $uploadFile = $this->getTmpImage();
 
-        $file = $this->fileflake->get($fileIds[0]);
+        $file = $this->fileflake->get($fileIds[0])->localize();
 
         $this->assertEquals(FileUtil::checksum($file->path), FileUtil::checksum($uploadFile->path));
 
         $file->delete();
         $this->assertFalse(file_exists($file->path));
+
+        // iterate file chunks
+        while ($chunk = $file->nextChunk()) {
+            FileUtil::appendStreamToFile($chunk, $file->path);
+        }
+
+        $this->assertEquals(FileUtil::checksum($file->path), FileUtil::checksum($uploadFile->path));
     }
 
     /**

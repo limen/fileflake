@@ -192,10 +192,6 @@ class Fileflake
     {
         $file = $this->getMeta($id);
 
-        $storage = LoadBalancer::getInstance()->get($file->nodeId);
-
-        $file->localize($storage);
-
         FileContainer::getInstance()->touch($file);
 
         FileContainer::getInstance()->dump();

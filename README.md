@@ -12,11 +12,8 @@ A distributed file server utilizes mongodb(not mongo GridFS) as the storage back
 + easy to scale out (add more storage nodes on the fly)
 + file stream stored in mongodb
 + file stream is divided into chunks and the chunk size is configurable
++ file chunks could be iterated without making a local copy
 + files have same checksum would only store one copy
-
-## System diagram
-
-![fileflake](https://github.com/limen/resources/blob/master/fileflake.png)
 
 ## Getting start
 
@@ -77,18 +74,31 @@ $fileflake = new \Limen\Fileflake\Fileflake($config);
 
 /** @var string $fileId md5 */
 $fileId = $fileflake->put($file);
-/** @var \Limen\Fileflake\Protocols\OutputFile $fileMeta no local copy */
+
+/** @var \Limen\Fileflake\Protocols\OutputFile only file meta data */
 $fileMeta = $fileflake->getMeta($fileId);
-/** @var \Limen\Fileflake\Protocols\OutputFile $fileMeta have a local copy */
+
+/** @var \Limen\Fileflake\Protocols\OutputFile  */
 $localFile = $fileflake->get($fileId);
+
+$localFile->localize();     // make a local copy
+
 /** @var string $localPath path of local copy */
 $localPath = $localFile->path;
 
+while ($chunk = $localFile->nextChunk()) {      // iterate file chunks without making a local copy
+    // do something
+}
+        
 // remove file
 $fileflake->remove($fileId);
 
 $fileflake->get($fileId);           // return null
 ```
+
+## System diagram
+
+![fileflake](https://github.com/limen/resources/blob/master/fileflake.png)
 
 ## Concepts 
 

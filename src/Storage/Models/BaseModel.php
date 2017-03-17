@@ -76,6 +76,10 @@ class BaseModel extends Eloquent
             unset($attributes['_id']);
         }
 
+        if (!isset($attributes[static::UPDATED_AT])) {
+            $attributes[static::UPDATED_AT] = time();
+        }
+
         return $this->where($this->getKeyName(), $id)->update($attributes);
     }
 

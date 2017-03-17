@@ -10,18 +10,27 @@
 namespace Limen\Fileflake\Protocols;
 
 use Limen\Fileflake\Config;
+use Limen\Fileflake\Exceptions\Exception;
+use Limen\Fileflake\LoadBalancer;
 use Limen\Fileflake\Storage\FileContentStorage;
 use Limen\Fileflake\Support\FileUtil;
 
 class OutputFile extends FileProtocol
 {
+    /** @var array */
+    protected $iteratingChunkIds;
+
+    /** @var FileContentStorage */
+    protected $storageNode;
+
     /**
      * make local file
-     * @param FileContentStorage $storageNode
      * @return $this
      */
-    public function localize($storageNode)
+    public function localize()
     {
+        $this->prepare();
+
         $file = Config::get(Config::KEY_LOCALIZE_DIR) . '/' . $this->id;
 
         if (file_exists($file)) {
@@ -29,7 +38,7 @@ class OutputFile extends FileProtocol
         }
 
         foreach ($this->chunkIds as $chunkId) {
-            $content = $storageNode->getChunk($chunkId);
+            $content = $this->storageNode->getChunk($chunkId);
             FileUtil::appendStreamToFile($content, $file);
         }
 
@@ -39,10 +48,42 @@ class OutputFile extends FileProtocol
     }
 
     /**
+     * Iterate file chunks
+     * @return null|string
+     */
+    public function nextChunk()
+    {
+        $this->prepare();
+
+        $chunkId = array_shift($this->iteratingChunkIds);
+
+        if (!$chunkId) {
+            return null;
+        }
+
+        return $this->storageNode->getChunk($chunkId);
+    }
+
+    /**
      * Delete local file
      */
     public function delete()
     {
         unlink($this->path);
+    }
+
+    protected function prepare()
+    {
+        if ($this->iteratingChunkIds === null) {
+            $this->iteratingChunkIds = $this->chunkIds;
+        }
+
+        if ($this->storageNode === null) {
+            $this->storageNode = LoadBalancer::getInstance()->get($this->nodeId);
+
+            if (!$this->storageNode) {
+                throw new Exception('Storage node not available');
+            }
+        }
     }
 }
