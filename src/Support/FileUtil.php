@@ -26,8 +26,8 @@ class FileUtil
     public static function getFileStream($fileName, $offset = null, $maxLen = null)
     {
         $content = file_get_contents($fileName, null, null, $offset, $maxLen);
-        $strArray = unpack(static::PACK_FORMAT, $content);
-        return $strArray ? array_shift($strArray) : false;
+
+        return base64_encode($content);
     }
 
     /**
@@ -36,7 +36,8 @@ class FileUtil
      */
     public static function appendStreamToFile($stream, $fileName)
     {
-        $fileContent = pack(static::PACK_FORMAT, $stream);
+        $fileContent = base64_decode($stream);
+
         file_put_contents($fileName, $fileContent, FILE_APPEND);
     }
 

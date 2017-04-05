@@ -118,8 +118,8 @@ class RedLock extends RedModel implements LockContract
         $success = false;
 
         for ($i = 0; $i < $this->maxRetryTimes; $i++) {
-            if ($this->where('id', $id)->setnx(1)) {
-                $this->where('id', $id)->pexpire($this->getTtl());
+            if ($this->newQuery()->where('id', $id)->setnx(1)) {
+                $this->newQuery()->where('id', $id)->pexpire($this->getTtl());
                 $success = true;
                 break;
             }
